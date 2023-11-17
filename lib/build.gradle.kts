@@ -6,6 +6,7 @@ plugins {
     kotlin("jvm") version "1.8.0"
     id("java-gradle-plugin")
     id("maven-publish")
+    id("java")
 }
 
 repositories {
@@ -24,4 +25,9 @@ gradlePlugin {
 
 tasks.jar {
     archiveBaseName.set(PLUGIN_NAME)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }

@@ -21,7 +21,7 @@ open class GenerateVersionFileTask() : DefaultTask() {
     @TaskAction
     fun generateVersionFile() {
         val fileName = "version.txt"
-        val fileDir = Paths.get(project.buildDir.toString(), "version")
+        val fileDir = Paths.get(project.layout.buildDirectory.toString(), "version")
                             .toString()
         createDirectoryIfNotExists(fileDir)
         val filePath = Paths.get(fileDir, fileName)
