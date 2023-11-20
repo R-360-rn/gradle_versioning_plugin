@@ -1,5 +1,11 @@
 package main.kotlin.gradle.plugins.versioningclient
 
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.file.RegularFile
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.Project
@@ -10,8 +16,17 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import org.gradle.api.tasks.util.PatternFilterable
+import org.gradle.api.file.FileCollection
+import javax.inject.Inject
 
-open class GenerateVersionFileTask() : DefaultTask() {
+open class GenerateVersionFileTask @Inject constructor(private val project: Project) : DefaultTask() {
+
+    @OutputFile
+    private var versionFile: RegularFileProperty = project.objects.fileProperty()
+
+    @InputFiles
+    private var inputFiles = project.objects.fileCollection()
 
     init {
         group = "Versioning"
@@ -19,66 +34,28 @@ open class GenerateVersionFileTask() : DefaultTask() {
     }
 
     @TaskAction
-    fun generateVersionFile() {
-        val fileName = "version.txt"
-        val fileDir = Paths.get(project.layout.buildDirectory.toString(), "version")
-                            .toString()
-        createDirectoryIfNotExists(fileDir)
-        val filePath = Paths.get(fileDir, fileName)
-                            .toAbsolutePath()
-                            .toString()
-        try {
-            println("Generating file $filePath")
-            val formattedDateTime = getUtcDateTimeNow()
-            val currentVersion = project.findProperty("currentVersion")
-            val gitHash = getGitCommitHash()
-            val stdOut = File(filePath)
-            val toWrite = """
-            current_version: $currentVersion
-            git_commit_hash: $gitHash
-            build_timestamp: $formattedDateTime
-            """.trimIndent()
-            stdOut.writeText(toWrite)
-            println("Generated $filePath:\n$toWrite")
-        }
-        catch(e: Exception) {
-            println("Error during generation of $filePath")
-            e.printStackTrace()
-        }
-
+    public fun generateVersionFile() {
+        val versionFileString = versionFile.get().toString()
+        logger.quiet("Generating Uber file {}", versionFileString)
+        val values = inputFiles.files.map { it.readText() }
+        val concatenatedContent = values.joinToString(separator = "\n")
+        versionFile.get().asFile.writeText(concatenatedContent)
+        logger.quiet("Completed generating Uber file {}", versionFileString)
     }
 
-    private fun getGitCommitHash(): String {
-        val processBuilder = ProcessBuilder("git", "rev-parse", "HEAD")
-        processBuilder.directory(project.projectDir)
-        val process = processBuilder.start()
-        val reader = process.inputStream.bufferedReader()
-        val gitHash = reader.readLine()
-        process.waitFor()
-        return gitHash ?: ""
+    public fun setVersionFile(filePathProvider: Provider<RegularFile>) {
+        versionFile.convention(filePathProvider)
     }
 
-    private fun getUtcDateTimeNow(): String {
-        val formattedDateTime = LocalDateTime.now()
-            .atZone(ZoneId.of("UTC"))
-            .format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss"))
-        return formattedDateTime.toString()
+    public fun getVersionFile(): File {
+        return versionFile.get().asFile
     }
 
-fun createDirectoryIfNotExists(directoryPath: String) {
-    val dirPath: Path = Paths.get(directoryPath)
-
-    if (!Files.exists(dirPath)) {
-        try {
-            Files.createDirectories(dirPath)
-            println("Directory created: $dirPath")
-        } catch (e: Exception) {
-            println("Error creating directory: $dirPath")
-            e.printStackTrace()
-        }
-    } else {
-        println("Directory already exists: $dirPath")
+    public fun setInputFiles(fileCollection: FileCollection) {
+        inputFiles.from(fileCollection)
     }
-}
 
+    public fun getInputFiles(): FileCollection {
+        return inputFiles
+    }
 }
